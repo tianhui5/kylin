@@ -61,10 +61,10 @@ import com.google.common.base.Strings;
 public class RestClient {
 
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
-    private static final String UTF_8 = "UTF-8";
+    protected static final String UTF_8 = "UTF-8";
     private static final String APPLICATION_JSON = "application/json";
-    private static final String INVALID_RESPONSE = "Invalid response ";
-    private static final String CUBES = "/cubes/";
+    protected static final String INVALID_RESPONSE = "Invalid response ";
+    protected static final String CUBES = "/cubes/";
     private static final String WITH_URL = " with url ";
 
     protected static Pattern fullRestPattern = Pattern.compile("(?:([^:]+)[:]([^@]+)[@])?([^:]+)(?:[:](\\d+))?");
@@ -142,7 +142,7 @@ public class RestClient {
         HttpConnectionParams.setConnectionTimeout(httpParams, httpConnectionTimeoutMs);
 
         final PoolingClientConnectionManager cm = new PoolingClientConnectionManager();
-        KylinConfig config = KylinConfig.getInstanceFromEnv();
+        KylinConfig config = KylinConfig.getInstanceFromEnv(true);
         cm.setDefaultMaxPerRoute(config.getRestClientDefaultMaxPerRoute());
         cm.setMaxTotal(config.getRestClientMaxTotal());
 
@@ -393,6 +393,10 @@ public class RestClient {
         checkCompatibility(jsonRequest, baseUrl + "/cubes/checkCompatibility");
     }
 
+    public void checkStreamTableCompatibility(String jsonRequest) throws IOException {
+        checkCompatibility(jsonRequest, baseUrl+"/cubes/checkStreamTableCompatibility");
+    }
+
     private void checkCompatibility(String jsonRequest, String url) throws IOException {
         HttpPost post = newPost(url);
         try {
@@ -434,13 +438,13 @@ public class RestClient {
         return post;
     }
 
-    private HttpPut newPut(String url) {
+    protected HttpPut newPut(String url) {
         HttpPut put = new HttpPut(url);
         addHttpHeaders(put);
         return put;
     }
 
-    private HttpGet newGet(String url) {
+    protected HttpGet newGet(String url) {
         HttpGet get = new HttpGet(url);
         addHttpHeaders(get);
         return get;
@@ -467,7 +471,7 @@ public class RestClient {
         }
     }
 
-    private String getContent(HttpResponse response) throws IOException {
+    protected String getContent(HttpResponse response) throws IOException {
         StringBuffer result = new StringBuffer();
         try (BufferedReader rd = new BufferedReader(
                 new InputStreamReader(response.getEntity().getContent(), StandardCharsets.UTF_8))) {
@@ -480,7 +484,7 @@ public class RestClient {
         return result.toString();
     }
 
-    private void cleanup(HttpRequestBase request, HttpResponse response) {
+    protected void cleanup(HttpRequestBase request, HttpResponse response) {
         try {
             if (response != null)
                 EntityUtils.consume(response.getEntity());

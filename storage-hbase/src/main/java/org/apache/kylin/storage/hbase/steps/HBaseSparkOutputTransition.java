@@ -21,6 +21,7 @@ package org.apache.kylin.storage.hbase.steps;
 import java.util.List;
 
 import org.apache.kylin.cube.CubeSegment;
+import org.apache.kylin.cube.cuboid.CuboidModeEnum;
 import org.apache.kylin.engine.spark.ISparkOutput;
 import org.apache.kylin.job.execution.DefaultChainedExecutable;
 import org.slf4j.Logger;
@@ -55,6 +56,9 @@ public class HBaseSparkOutputTransition implements ISparkOutput {
             @Override
             public void addStepPhase3_BuildCube(DefaultChainedExecutable jobFlow) {
                 jobFlow.addTask(steps.createConvertCuboidToHfileStep(jobFlow.getId()));
+                if(seg.getConfig().isHFileDistCP()){
+                    jobFlow.addTask(steps.createDistcpHFileStep(jobFlow.getId()));
+                }
                 jobFlow.addTask(steps.createBulkLoadStep(jobFlow.getId()));
             }
 
@@ -80,6 +84,9 @@ public class HBaseSparkOutputTransition implements ISparkOutput {
             public void addStepPhase2_BuildCube(CubeSegment seg, List<CubeSegment> mergingSegments,
                     DefaultChainedExecutable jobFlow) {
                 jobFlow.addTask(steps.createConvertCuboidToHfileStep(jobFlow.getId()));
+                if(seg.getConfig().isHFileDistCP()){
+                    jobFlow.addTask(steps.createDistcpHFileStep(jobFlow.getId()));
+                }
                 jobFlow.addTask(steps.createBulkLoadStep(jobFlow.getId()));
             }
 
@@ -92,6 +99,29 @@ public class HBaseSparkOutputTransition implements ISparkOutput {
     }
 
     public ISparkBatchOptimizeOutputSide getBatchOptimizeOutputSide(final CubeSegment seg) {
-        return null;
+        return new ISparkBatchOptimizeOutputSide() {
+            HBaseSparkSteps steps = new HBaseSparkSteps(seg);
+
+            @Override
+            public void addStepPhase2_CreateHTable(DefaultChainedExecutable jobFlow) {
+                jobFlow.addTask(steps.createCreateHTableStep(jobFlow.getId(), CuboidModeEnum.RECOMMEND));
+            }
+
+            @Override
+            public void addStepPhase3_BuildCube(DefaultChainedExecutable jobFlow) {
+                jobFlow.addTask(steps.createConvertCuboidToHfileStep(jobFlow.getId()));
+                jobFlow.addTask(steps.createBulkLoadStep(jobFlow.getId()));
+            }
+
+            @Override
+            public void addStepPhase4_Cleanup(DefaultChainedExecutable jobFlow) {
+                steps.addOptimizeGarbageCollectionSteps(jobFlow);
+            }
+
+            @Override
+            public void addStepPhase5_Cleanup(DefaultChainedExecutable jobFlow) {
+                steps.addCheckpointGarbageCollectionSteps(jobFlow);
+            }
+        };
     }
 }

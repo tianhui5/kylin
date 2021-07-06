@@ -124,7 +124,12 @@ public class TableService extends BasicService {
     private AclEvaluate aclEvaluate;
 
     public TableSchemaUpdateChecker getSchemaUpdateChecker() {
-        return new TableSchemaUpdateChecker(getTableManager(), getCubeManager(), getDataModelManager());
+        return new TableSchemaUpdateChecker(getTableManager(), getCubeManager(), getDataModelManager(), getStreamingSourceConfigManager());
+    }
+
+    public void checkStreamTableCompatibility(String project, TableDesc tableDesc) {
+        TableSchemaUpdateChecker.CheckResult result = getSchemaUpdateChecker().streamTableCheckCompatibility(tableDesc, project);
+        result.raiseExceptionWhenInvalid();
     }
 
     public void checkTableCompatibility(String prj, TableDesc tableDesc) {
@@ -201,7 +206,10 @@ public class TableService extends BasicService {
         // do schema check
         TableMetadataManager metaMgr = getTableManager();
         CubeManager cubeMgr = getCubeManager();
-        TableSchemaUpdateChecker checker = new TableSchemaUpdateChecker(metaMgr, cubeMgr, getDataModelManager());
+        TableSchemaUpdateChecker checker = new TableSchemaUpdateChecker(metaMgr,
+                cubeMgr,
+                getDataModelManager(),
+                getStreamingSourceConfigManager());
         for (Pair<TableDesc, TableExtDesc> pair : allMeta) {
             TableDesc tableDesc = pair.getFirst();
             TableSchemaUpdateChecker.CheckResult result = checker.allowReload(tableDesc, project);
@@ -284,9 +292,10 @@ public class TableService extends BasicService {
      * that's why we have two if statement here.
      * @param tableName
      * @param project
+     * @param  needRemoveStreamInfo
      * @return
      */
-    public boolean unloadHiveTable(String tableName, String project) throws IOException {
+    public boolean unloadHiveTable(String tableName, String project, boolean needRemoveStreamInfo) throws IOException {
         aclEvaluate.checkProjectAdminPermission(project);
         Message msg = MsgPicker.getMsg();
 
@@ -319,7 +328,9 @@ public class TableService extends BasicService {
         // remove streaming info
         SourceManager sourceManager = SourceManager.getInstance(KylinConfig.getInstanceFromEnv());
         ISource source = sourceManager.getCachedSource(desc);
-        source.unloadTable(tableName, project);
+        if (!desc.isStreamingTable() || needRemoveStreamInfo) {
+            source.unloadTable(tableName, project);
+        }
         return rtn;
     }
 

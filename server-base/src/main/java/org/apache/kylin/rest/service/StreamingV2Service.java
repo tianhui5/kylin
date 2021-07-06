@@ -23,7 +23,9 @@ import java.net.InetAddress;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -105,12 +107,32 @@ public class StreamingV2Service extends BasicService {
         receiverAdminClient = adminClient;
     }
 
-    public List<StreamingSourceConfig> listAllStreamingConfigs(final String table) throws IOException {
+    public void checkStreamingSourceCompatibility(final String prj, final StreamingSourceConfig streamingSourceConfig) throws Exception {
+        StreamingSourceConfig existing = getStreamingManagerV2().
+                getConfig(streamingSourceConfig.getName(), streamingSourceConfig.getProjectName());
+        if (existing == null) {
+            return;
+        } else if (!Objects.equals(streamingSourceConfig.getParserInfo(), existing.getParserInfo())) {
+            logger.info("stream source parse info compatibility check, source {}, target {}",
+                    streamingSourceConfig.getParserInfo(), existing.getParserInfo());
+            throw new Exception(String.format(Locale.ROOT,
+                    "the stream source parse info is not compatible, name %s, project %s",
+                    streamingSourceConfig.getName(), streamingSourceConfig.getProjectName()));
+        } else if (!Objects.equals(streamingSourceConfig.getProperties(), existing.getProperties())) {
+            logger.info("stream source properties compatibility check, source {}, target {}",
+                    streamingSourceConfig.getProperties(), existing.getProperties());
+            throw new Exception(String.format(Locale.ROOT,
+                    "the stream source properties are not compatible, name %s, project %s",
+                    streamingSourceConfig.getName(), streamingSourceConfig.getProjectName()));
+        }
+    }
+
+    public List<StreamingSourceConfig> listAllStreamingConfigs(final String table, final String projectName) throws IOException {
         List<StreamingSourceConfig> streamingSourceConfigs = Lists.newArrayList();
-        if (StringUtils.isEmpty(table)) {
+        if (StringUtils.isEmpty(table) || StringUtils.isEmpty(projectName)) {
             streamingSourceConfigs = getStreamingManagerV2().listAllStreaming();
         } else {
-            StreamingSourceConfig config = getStreamingManagerV2().getConfig(table);
+            StreamingSourceConfig config = getStreamingManagerV2().getConfig(table, projectName);
             if (config != null) {
                 streamingSourceConfigs.add(config);
             }
@@ -119,10 +141,10 @@ public class StreamingV2Service extends BasicService {
         return streamingSourceConfigs;
     }
 
-    public List<StreamingSourceConfig> getStreamingConfigs(final String table, final Integer limit, final Integer offset)
+    public List<StreamingSourceConfig> getStreamingConfigs(final String table, final String projectName, final Integer limit, final Integer offset)
             throws IOException {
         List<StreamingSourceConfig> streamingSourceConfigs;
-        streamingSourceConfigs = listAllStreamingConfigs(table);
+        streamingSourceConfigs = listAllStreamingConfigs(table, projectName);
 
         if (limit == null || offset == null) {
             return streamingSourceConfigs;
@@ -138,7 +160,7 @@ public class StreamingV2Service extends BasicService {
     @PreAuthorize(Constant.ACCESS_HAS_ROLE_ADMIN
             + " or hasPermission(#project, 'ADMINISTRATION')")
     public StreamingSourceConfig createStreamingConfig(StreamingSourceConfig config, ProjectInstance project) throws IOException {
-        if (getStreamingManagerV2().getConfig(config.getName()) != null) {
+        if (getStreamingManagerV2().getConfigMustWithProject(config.getName(), config.getProjectName()) != null) {
             throw new InternalErrorException("The streamingSourceConfig named " + config.getName() + " already exists");
         }
         StreamingSourceConfig streamingSourceConfig = getStreamingManagerV2().saveStreamingConfig(config);
@@ -437,6 +459,10 @@ public class StreamingV2Service extends BasicService {
         for (Node receiver : receivers) {
             Future<ReceiverStats> futureStats = statsFuturesMap.get(receiver);
             try {
+                if (futureStats == null) {
+                    logger.warn("Receiver node {} can not be connect.", receiver);
+                    continue;
+                }
                 ReceiverStats receiverStats = futureStats.get();
                 receiverStatsMap.put(receiver, receiverStats);
             } catch (InterruptedException e) {

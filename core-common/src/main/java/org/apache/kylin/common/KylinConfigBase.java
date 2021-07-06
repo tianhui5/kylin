@@ -510,7 +510,7 @@ public abstract class KylinConfigBase implements Serializable {
     }
 
     public String getHbaseClientRetriesNumber() {
-        return getOptional("kylin.metadata.hbase-client-retries-number", "1");
+        return getOptional("kylin.metadata.hbase-client-retries-number", "3");
     }
 
     public boolean isModelSchemaUpdaterCheckerEnabled() {
@@ -716,7 +716,7 @@ public abstract class KylinConfigBase implements Serializable {
     public boolean isRowKeyEncodingAutoConvert() {
         return Boolean.parseBoolean(getOptional("kylin.cube.rowkey-encoding-auto-convert", "true"));
     }
-    
+
     public String getSegmentAdvisor() {
         return getOptional("kylin.cube.segment-advisor", "org.apache.kylin.cube.CubeSegmentAdvisor");
     }
@@ -1052,7 +1052,12 @@ public abstract class KylinConfigBase implements Serializable {
     // ============================================================================
 
     public String getHiveDatabaseDir(String databaseName) {
-        String dbDir = System.getProperty("kylin.source.hive.warehouse-dir");
+        String dbDir = getOptional("kylin.source.hive.warehouse-dir", "");
+        if (!StringUtil.isEmpty(dbDir)) {
+            logger.info("kylin.source.hive.warehouse-dir is {}", dbDir);
+        } else {
+            logger.warn("kylin.source.hive.warehouse-dir is null");
+        }
         if (!StringUtil.isEmpty(databaseName) && !databaseName.equalsIgnoreCase(DEFAULT)) {
             if (!dbDir.endsWith("/")) {
                 dbDir += "/";
@@ -1726,6 +1731,14 @@ public abstract class KylinConfigBase implements Serializable {
         return Boolean.parseBoolean(getOptional("kylin.engine.spark-create-table-enabled", FALSE));
     }
 
+    public boolean isSparkOptimizeCubeViaSparkEnable() {
+        return Boolean.parseBoolean(getOptional("kylin.engine.spark-optimize-cube-enabled", TRUE));
+    }
+
+    public boolean isUseSparkCalculateStatsEnable() {
+        return Boolean.parseBoolean(getOptional("kylin.engine.spark-calculate-stats-enabled", TRUE));
+    }
+
     public boolean isFlinkSanityCheckEnabled() {
         return Boolean.parseBoolean(getOptional("kylin.engine.flink.sanity-check-enabled", FALSE));
     }
@@ -1955,8 +1968,12 @@ public abstract class KylinConfigBase implements Serializable {
         return Boolean.parseBoolean(this.getOptional("kylin.query.ignore-unknown-function", FALSE));
     }
 
+    public boolean isMemcachedEnabled() {
+        return !StringUtil.isEmpty(getMemCachedHosts());
+    }
+
     public String getMemCachedHosts() {
-        return getRequired("kylin.cache.memcached.hosts");
+        return getOptional("kylin.cache.memcached.hosts", null);
     }
 
     public boolean isQuerySegmentCacheEnabled() {
@@ -2134,7 +2151,8 @@ public abstract class KylinConfigBase implements Serializable {
     }
 
     public boolean isQueryCacheSignatureEnabled() {
-        return Boolean.parseBoolean(this.getOptional("kylin.query.cache-signature-enabled", FALSE));
+        return Boolean.parseBoolean(
+                this.getOptional("kylin.query.cache-signature-enabled", String.valueOf(isMemcachedEnabled())));
     }
 
     public int getFlatFilterMaxChildrenSize() {
@@ -2327,7 +2345,7 @@ public abstract class KylinConfigBase implements Serializable {
     public String getKylinMetricsEventTimeZone() {
         return getOptional("kylin.metrics.event-time-zone", getTimeZone()).toUpperCase(Locale.ROOT);
     }
-    
+
     public boolean isKylinMetricsMonitorEnabled() {
         return Boolean.parseBoolean(getOptional("kylin.metrics.monitor-enabled", FALSE));
     }
@@ -2355,7 +2373,7 @@ public abstract class KylinConfigBase implements Serializable {
     }
 
     public String getKylinMetricsSubjectSuffix() {
-        return getOptional("kylin.metric.subject-suffix", getDeployEnv());
+        return getOptional("kylin.metrics.subject-suffix", getDeployEnv());
     }
 
     public String getKylinMetricsSubjectJob() {
@@ -2556,7 +2574,7 @@ public abstract class KylinConfigBase implements Serializable {
     }
 
     public int getStreamingReceiverQueryCoreThreads() {
-        int def = getStreamingReceiverQueryMaxThreads() - 1;
+        int def = Math.max(2, AVAILABLE_PROCESSORS - 1);
         return Integer.parseInt(getOptional("kylin.stream.receiver.query-core-threads", def + ""));
     }
 
@@ -2686,4 +2704,20 @@ public abstract class KylinConfigBase implements Serializable {
     public Map<String, String> getJobStatusKafkaConfig() {
         return getPropertiesByPrefix("kylin.engine.job-status.kafka.");
     }
+
+    public boolean isHFileDistCP() {
+        return Boolean.parseBoolean(getOptional("kylin.storage.hfile-distcp-enable", "false"));
+    }
+
+    public int getDistCPMapBandWidth(){
+        return Integer.valueOf(getOptional("kylin.storage.distcp-map-bandwidth", "20"));
+    }
+
+    public int getDistCPMaxMapNum(){
+        return Integer.valueOf(getOptional("kylin.storage.distcp-max-map-num", "50"));
+    }
+
+    public String getKylinDictCacheStrength(){
+        return getOptional("kylin.dict.cache.strength", "soft");
+    };
 }

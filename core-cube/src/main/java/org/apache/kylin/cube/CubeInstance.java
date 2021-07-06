@@ -25,6 +25,7 @@ import static org.apache.kylin.cube.cuboid.CuboidModeEnum.RECOMMEND;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -723,6 +724,10 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         return snapshots;
     }
 
+    public Collection<String> getSnapshotPaths() {
+        return getSnapshots().values();
+    }
+
     public void resetSnapshots() {
         snapshots = Maps.newHashMap();
     }
@@ -766,6 +771,10 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
             }
         }
         throw new IllegalStateException("No segment's last build job ID equals " + jobID);
+    }
+
+    public boolean isStreamLambdaCube() {
+        return getModel().getRootFactTable().getTableDesc().isLambdaTable();
     }
 
 }

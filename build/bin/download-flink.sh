@@ -17,13 +17,13 @@
 # limitations under the License.
 #
 
-source $(cd -P -- "$(dirname -- "$0")" && pwd -P)/header.sh
+source ${KYLIN_HOME:-"$(cd -P -- "$(dirname -- "$0")" && pwd -P)/../"}/bin/header.sh
 
 if [ -d "${KYLIN_HOME}/flink" ]; then
-  echo "Flink binary exists"
-  exit 0;
+    echo "Flink binary exists"
+    exit 0;
 else
-  echo "Downloading flink package..."
+    echo "Downloading flink package..."
 fi
 
 flink_package_dir=/tmp/flink_package
@@ -35,11 +35,11 @@ if [[ `uname -a` =~ "Darwin" ]]; then
     alias md5cmd="md5 -q"
 fi
 
-flink_version="1.9.2"
+flink_version="1.11.1"
 scala_version="2.11"
 flink_shaded_version="10.0"
 hadoop_version="2.7.5"
-flink_pkg_md5="0718a04fe0a641cc5f5368124a4c54a5"
+flink_pkg_md5="3b7aa59b44add1a0625737f6516e0929"
 flink_shaded_hadoop_md5="4287a314bfb09a3dc957cbda3f91d7ca"
 
 if [ ! -f "flink-${flink_version}-bin-scala_${scala_version}.tgz" ]; then
@@ -57,14 +57,14 @@ flink_shaded_hadoop_jar="flink-shaded-hadoop-2-uber-${hadoop_version}-${flink_sh
 flink_shaded_hadoop_path="https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/${hadoop_version}-${flink_shaded_version}/${flink_shaded_hadoop_jar}"
 
 if [ ! -f $flink_shaded_hadoop_jar ]; then
-  echo "Start to download $flink_shaded_hadoop_jar"
-  wget $flink_shaded_hadoop_path || echo "Download flink shaded hadoop jar failed"
-else
-  if [ `md5cmd $flink_shaded_hadoop_jar | awk '{print $1}'` != $flink_shaded_hadoop_md5 ]; then
-    echo "md5 check failed"
-    rm $flink_shaded_hadoop_jar
+    echo "Start to download $flink_shaded_hadoop_jar"
     wget $flink_shaded_hadoop_path || echo "Download flink shaded hadoop jar failed"
-  fi
+else
+    if [ `md5cmd $flink_shaded_hadoop_jar | awk '{print $1}'` != $flink_shaded_hadoop_md5 ]; then
+        echo "md5 check failed"
+        rm $flink_shaded_hadoop_jar
+        wget $flink_shaded_hadoop_path || echo "Download flink shaded hadoop jar failed"
+    fi
 fi
 unalias md5cmd
 

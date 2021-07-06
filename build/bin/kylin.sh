@@ -33,31 +33,20 @@ mkdir -p ${KYLIN_HOME}/ext
 source ${dir}/set-java-home.sh
 
 function retrieveDependency() {
-    #retrive $hive_dependency and $hbase_dependency
-    if [[ -z $reload_dependency && `ls -1 ${dir}/cached-* 2>/dev/null | wc -l` -eq 6 ]]
-    then
-        echo "Using cached dependency..."
-        source ${dir}/cached-hive-dependency.sh
-        source ${dir}/cached-hbase-dependency.sh
-        source ${dir}/cached-hadoop-conf-dir.sh
-        source ${dir}/cached-kafka-dependency.sh
-        source ${dir}/cached-spark-dependency.sh
-        source ${dir}/cached-flink-dependency.sh
-    else
-        source ${dir}/find-hive-dependency.sh
-        source ${dir}/find-hbase-dependency.sh
-        source ${dir}/find-hadoop-conf-dir.sh
-        source ${dir}/find-kafka-dependency.sh
-        source ${dir}/find-spark-dependency.sh
-        source ${dir}/find-flink-dependency.sh
-    fi
+
+    source ${dir}/find-hive-dependency.sh
+    source ${dir}/find-hbase-dependency.sh
+    source ${dir}/find-hadoop-conf-dir.sh
+    source ${dir}/find-kafka-dependency.sh
+    source ${dir}/find-spark-dependency.sh
+    source ${dir}/find-flink-dependency.sh
 
     #retrive $KYLIN_EXTRA_START_OPTS
     if [ -f "${dir}/setenv.sh" ]; then
         echo "WARNING: ${dir}/setenv.sh is deprecated and ignored, please remove it and use ${KYLIN_HOME}/conf/setenv.sh instead"
         source ${dir}/setenv.sh
     fi
-    
+
     if [ -f "${KYLIN_HOME}/conf/setenv.sh" ]; then
         source ${KYLIN_HOME}/conf/setenv.sh
     fi
@@ -74,7 +63,7 @@ function retrieveStartCommand() {
         PID=`cat $KYLIN_HOME/pid`
         if ps -p $PID > /dev/null
         then
-          quit "Kylin is running, stop it first"
+            quit "Kylin is running, stop it first"
         fi
     fi
 
@@ -154,7 +143,7 @@ function retrieveStartCommand() {
     -Dkylin.flink.dependency=${flink_dependency} \
     -Dkylin.hadoop.conf.dir=${kylin_hadoop_conf_dir} \
     -Dkylin.server.host-address=${kylin_rest_address} \
-    -Dkylin.source.hive.warehouse-dir=${hiveWarehouseDir} \
+    -Dkylin.source.hive.warehouse-dir=${hive_warehouse_dir} \
     -Dspring.profiles.active=${spring_profile} \
     org.apache.hadoop.util.RunJar ${tomcat_root}/bin/bootstrap.jar  org.apache.catalina.startup.Bootstrap start"
 }
@@ -190,7 +179,7 @@ function retrieveStopCommand() {
                 sleep 1 #give kill -9  sometime to "kill"
                 if ps -p $PID > /dev/null
                 then
-                   quit "Warning, even kill -9 failed, giving up! Sorry..."
+                    quit "Warning, even kill -9 failed, giving up! Sorry..."
                 fi
             fi
 
@@ -224,7 +213,7 @@ then
     echo "Check the log at ${KYLIN_HOME}/logs/kylin.log"
     echo "Web UI is at http://${kylin_rest_address_arr}/kylin"
     exit 0
-    
+
 # run command
 elif [ "$1" == "run" ]
 then
@@ -249,12 +238,14 @@ then
     echo "Restarting kylin..."
     echo "--> Stopping kylin first if it's running..."
     retrieveStopCommand
+
     if [[ $? != 0 ]]
     then
         echo "Kylin is not running, now start it"
     fi
     echo "--> Start kylin..."
     retrieveStartCommand
+
     ${start_command} >> ${KYLIN_HOME}/logs/kylin.out 2>&1 & echo $! > ${KYLIN_HOME}/pid &
     rm -f $lockfile
 
@@ -372,7 +363,7 @@ then
                     sleep 1 #give kill -9  sometime to "kill"
                     if ps -p $PID > /dev/null
                     then
-                       quit "Warning, even kill -9 failed, giving up! Sorry..."
+                        quit "Warning, even kill -9 failed, giving up! Sorry..."
                     fi
                 fi
 
